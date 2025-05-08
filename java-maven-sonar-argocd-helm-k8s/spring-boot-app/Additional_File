@@ -1,0 +1,33 @@
+stage('Update Helm Chart and Push') {
+  environment {
+    IMAGE_TAG = "${BUILD_NUMBER}"
+    IMAGE_REPO = "abhishekf5/ultimate-cicd"
+    CHART_REPO = "git@github.com:your-user/your-helm-repo.git"
+    CHART_DIR = "springboot-chart" // folder inside the chart repo
+    GIT_SSH_KEY = credentials('github-ssh') // use a Jenkins SSH credential ID
+  }
+  steps {
+    sshagent(['github-ssh']) {
+      sh '''
+        # Clone Helm chart repo
+        rm -rf helm-repo && git clone ${CHART_REPO} helm-repo
+        cd helm-repo/${CHART_DIR}
+
+        # Update image tag and repo in values.yaml
+        sed -i "s|repository: .*|repository: ${IMAGE_REPO}|" values.yaml
+        sed -i "s|tag: .*|tag: ${IMAGE_TAG}|" values.yaml
+
+        # Update appVersion and chart version in Chart.yaml
+        sed -i "s|appVersion: .*|appVersion: \\"${IMAGE_TAG}\\"|" Chart.yaml
+        sed -i "s|version: .*|version: 0.1.${IMAGE_TAG}|" Chart.yaml
+
+        # Commit and push
+        git config user.email "ci@example.com"
+        git config user.name "CI Bot"
+        git add .
+        git commit -m "Update image to ${IMAGE_REPO}:${IMAGE_TAG}"
+        git push origin main
+      '''
+    }
+  }
+}
